@@ -1,12 +1,12 @@
 # Consistent Icons
 
-Consistent Icons is a GNOME Shell 49 extension that gives application icons a more uniform shape in the app grid, folder previews, search results, and compatible docks. It uses each icon supplied by GNOME or the active icon theme; it does not replace the system icon theme or change icons inside application windows.
+Consistent Icons is a GNOME Shell extension that gives application icons a more uniform shape in the app grid, folder previews, search results, and compatible docks. It uses each icon supplied by GNOME or the active icon theme; it does not replace the system icon theme or change icons inside application windows.
 
 Maintained by **DIOR27**.
 
 ## Appearance
 
-The extension inspects the effective image used for an icon, including icons resolved from the currently active icon theme, then classifies its visible silhouette:
+The extension inspects the effective image used for an icon, including icons resolved from the currently active icon theme at the icon's display size and scale, then classifies its visible silhouette. It avoids forcing small raster sources to a larger intermediate size.
 
 - Rounded-square icons are left unchanged.
 - Square icons with sharp corners keep their original artwork and receive rounded corners.
@@ -45,6 +45,6 @@ Open **Consistent Icons** in GNOME Extensions to choose the tile background:
 
 - **System** follows GNOME's light or dark appearance.
 - **Static color** uses GNOME's accent color or a color you select.
-- **Gradient** samples up to five visible colors from each effective app icon. Choose a linear, radial, or wave style; linear gradients have eight directions.
+- **Gradient** uses the most prevalent visible colors from each effective app icon and builds lighter and darker tones from them. Colors within 2 percentage points of the leader are treated as co-dominant. Choose a linear, radial, or wave style; linear gradients have eight directions.
 
 Changes apply to existing icons immediately. These options affect only icons that receive a tile under the shape rules above.
