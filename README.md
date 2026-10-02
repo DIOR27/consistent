@@ -18,7 +18,7 @@ Generated tiles use light or dark colors to match GNOME's appearance setting. A 
 
 ## Compatibility
 
-The extension targets GNOME Shell 50. It styles application icons created through GNOME Shell's shared app-icon API and refreshes existing actors it can identify. This also covers docks that use that API or expose an application and its icon actor to GNOME Shell. A third-party dock with a separate icon-rendering implementation may need its own integration.
+The extension supports GNOME Shell 48, 49, and 50 from one package. It styles application icons created through GNOME Shell's shared app-icon API and refreshes existing actors it can identify. This also covers docks that use that API or expose an application and its icon actor to GNOME Shell. A third-party dock with a separate icon-rendering implementation may need its own integration.
 
 ## Install
 

@@ -5,6 +5,6 @@
   "url": "https://github.com/DIOR27/consistent",
   "license": "GPL-2.0-only",
   "settings-schema": "org.gnome.shell.extensions.consistent-icons",
-  "shell-version": ["50"],
+  "shell-version": ["48", "49", "50"],
   "version": 10
 }
