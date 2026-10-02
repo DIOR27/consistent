@@ -27,8 +27,13 @@
     </key>
     <key name="wave-orientation" type="i">
       <default>0</default>
-      <range min="0" max="1"/>
-      <summary>Wave gradient orientation</summary>
+      <range min="0" max="7"/>
+      <summary>Wave gradient direction</summary>
+    </key>
+    <key name="radial-center" type="i">
+      <default>0</default>
+      <range min="0" max="8"/>
+      <summary>Radial gradient center position</summary>
     </key>
   </schema>
 </schemalist>

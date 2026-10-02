@@ -17,6 +17,7 @@ const SolidColorSource = Object.freeze({
 });
 
 const GradientStyle = Object.freeze({
+    RADIAL: 1,
     WAVE: 2,
 });
 
@@ -78,7 +79,28 @@ export default class ConsistentIconsPreferences extends ExtensionPreferences {
                 'Diagonal: abajo izquierda a arriba derecha',
             ]);
         const waveRow = addComboRow(gradientGroup, settings, 'wave-orientation',
-            'Orientación de onda', ['Horizontal', 'Vertical']);
+            'Dirección de onda', [
+                'Izquierda a derecha',
+                'Arriba a abajo',
+                'Derecha a izquierda',
+                'Abajo a arriba',
+                'Diagonal: arriba izquierda a abajo derecha',
+                'Diagonal: arriba derecha a abajo izquierda',
+                'Diagonal: abajo derecha a arriba izquierda',
+                'Diagonal: abajo izquierda a arriba derecha',
+            ]);
+        const radialCenterRow = addComboRow(gradientGroup, settings, 'radial-center',
+            'Centro del gradiente radial', [
+                'Centro',
+                'Izquierda',
+                'Arriba izquierda',
+                'Arriba',
+                'Arriba derecha',
+                'Derecha',
+                'Abajo derecha',
+                'Abajo',
+                'Abajo izquierda',
+            ]);
 
         page.add(modeGroup);
         page.add(solidGroup);
@@ -94,6 +116,7 @@ export default class ConsistentIconsPreferences extends ExtensionPreferences {
             gradientGroup.visible = mode === BackgroundMode.GRADIENT;
             directionRow.visible = gradientStyle === GradientStyle.LINEAR;
             waveRow.visible = gradientStyle === GradientStyle.WAVE;
+            radialCenterRow.visible = gradientStyle === GradientStyle.RADIAL;
         };
 
         const changedId = settings.connect('changed', updateVisibility);

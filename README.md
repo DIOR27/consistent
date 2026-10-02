@@ -8,9 +8,9 @@ Maintained by **DIOR27**.
 
 The extension inspects the effective image used for an icon, including icons resolved from the currently active icon theme at the icon's display size and scale, then classifies its visible silhouette. It avoids forcing small raster sources to a larger intermediate size.
 
-- Rounded-square icons are left unchanged.
-- Square icons with sharp corners keep their original artwork and receive rounded corners.
-- Other shapes are placed on a rounded tile, with the artwork centered and scaled proportionally to 70% of the tile size.
+- Every icon keeps a consistent actor size, while its visible artwork is centered and scaled proportionally to 70% of that space.
+- Rounded-square icons retain their existing artwork and corners. Square icons retain their artwork and receive rounded corners.
+- Other shapes are placed on a rounded tile, with their artwork scaled to the same 70% visible footprint.
 
 Shape detection uses the image's visible pixel bounds, transparency, and sampled edges and corners. It is a visual heuristic, so unusual artwork can be classified imperfectly. When an icon cannot be inspected, the extension uses the rounded-tile treatment as a fallback.
 
@@ -45,6 +45,6 @@ Open **Consistent Icons** in GNOME Extensions to choose the tile background:
 
 - **System** follows GNOME's light or dark appearance.
 - **Static color** uses GNOME's accent color or a color you select.
-- **Gradient** uses the most prevalent visible colors from each effective app icon and builds lighter and darker tones from them. Colors within 2 percentage points of the leader are treated as co-dominant. Choose a linear, radial, or wave style; linear gradients have eight directions.
+- **Gradient** uses the most prevalent visible colors from each effective app icon and builds lighter and darker tones from them. Colors within 2 percentage points of the leader are treated as co-dominant. Linear and wave styles have eight directions; radial gradients can use the center or one of eight nearby focal points.
 
-Changes apply to existing icons immediately. These options affect only icons that receive a tile under the shape rules above.
+Changes apply to existing icons immediately. Background options affect only icons that receive a tile under the shape rules above.
