@@ -8,9 +8,8 @@ Maintained by **DIOR27**.
 
 The extension inspects the effective image used for an icon, including icons resolved from the currently active icon theme at the icon's display size and scale, then classifies its visible silhouette. It avoids forcing small raster sources to a larger intermediate size.
 
-- Every icon keeps a consistent actor size, while its visible artwork is centered and scaled proportionally to 70% of that space.
-- Rounded-square icons retain their existing artwork and corners. Square icons retain their artwork and receive rounded corners.
-- Other shapes are placed on a rounded tile, with their artwork scaled to the same 70% visible footprint.
+- Icons keep the full size assigned by GNOME. Rounded-square icons retain their existing artwork and corners; sharp-square icons retain their artwork and receive rounded corners.
+- Other shapes are placed on a rounded tile that fills the same assigned size, with their artwork centered and scaled proportionally to 70% of the tile.
 
 Shape detection uses the image's visible pixel bounds, transparency, and sampled edges and corners. It is a visual heuristic, so unusual artwork can be classified imperfectly. When an icon cannot be inspected, the extension uses the rounded-tile treatment as a fallback.
 

@@ -96,30 +96,21 @@ export default class ConsistentIconsExtension extends Extension {
             return source;
 
         const analysis = this._analyzeIcon(source, size);
-        const contentSize = Math.max(1, Math.round(size * 0.70));
-
-        if (analysis?.shape === 'rounded-square') {
-            try {
-                const image = this._createImageActor(
-                    analysis.pixbuf, contentSize, false, analysis.bounds);
-                source.destroy();
-                return this._createIconFrame(image, size);
-            } catch (error) {
-                console.debug(`Consistent Icons: cannot resize rounded icon: ${error.message}`);
-            }
-        }
+        if (analysis?.shape === 'rounded-square')
+            return source;
 
         if (analysis?.shape === 'square') {
             try {
                 const rounded = this._createImageActor(
-                    analysis.pixbuf, contentSize, true, analysis.bounds);
+                    analysis.pixbuf, size, true, analysis.bounds);
                 source.destroy();
-                return this._createIconFrame(rounded, size);
+                return rounded;
             } catch (error) {
                 console.debug(`Consistent Icons: cannot round square icon: ${error.message}`);
             }
         } else if (analysis?.shape === 'other') {
             try {
+                const contentSize = Math.max(1, Math.round(size * 0.70));
                 const image = this._createImageActor(
                     analysis.pixbuf, contentSize, false, analysis.bounds);
                 source.destroy();
@@ -129,6 +120,7 @@ export default class ConsistentIconsExtension extends Extension {
             }
         }
 
+        const contentSize = Math.max(1, Math.round(size * 0.70));
         source.x_align = Clutter.ActorAlign.CENTER;
         source.y_align = Clutter.ActorAlign.CENTER;
         source.set_size(contentSize, contentSize);
@@ -190,27 +182,6 @@ export default class ConsistentIconsExtension extends Extension {
         tile.connect('notify::height', syncSize);
         this._styleTile(tile, size, palette);
         return tile;
-    }
-
-    _createIconFrame(icon, size) {
-        const frame = new St.Widget({
-            layout_manager: new Clutter.BinLayout(),
-            width: size,
-            height: size,
-            reactive: false,
-            can_focus: false,
-        });
-        frame.add_child(icon);
-        const syncSize = () => {
-            const frameSize = Math.max(frame.width, frame.height, size);
-            const contentSize = Math.max(1, Math.round(frameSize * 0.70));
-            icon.set_size(contentSize, contentSize);
-        };
-        icon.x_align = Clutter.ActorAlign.CENTER;
-        icon.y_align = Clutter.ActorAlign.CENTER;
-        frame.connect('notify::width', syncSize);
-        frame.connect('notify::height', syncSize);
-        return frame;
     }
 
     _analyzeIcon(icon, iconSize) {
