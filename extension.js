@@ -400,17 +400,18 @@ export default class ConsistentIconsExtension extends Extension {
         const leaders = [...colors.values()];
         const largestCount = Math.max(...leaders.map(color => color.count));
         const byHue = (a, b) => this._paletteHue(a) - this._paletteHue(b);
-        const dominantColors = leaders
-            .filter(color => largestCount - color.count <= total * 0.02)
-            .map(toRgb)
-            .sort(byHue);
         const tiedLeaders = leaders
             .filter(color => color.count === largestCount)
             .map(toRgb)
             .sort(byHue);
-        const selectedColors = tiedLeaders.length > 1
+        const selectedColors = tiedLeaders.length >= 3
             ? [tiedLeaders[0]]
-            : dominantColors;
+            : leaders
+                .filter(color => largestCount - color.count <= total * 0.02)
+                .sort((a, b) => b.count - a.count || byHue(toRgb(a), toRgb(b)))
+                .slice(0, 2)
+                .map(toRgb)
+                .sort(byHue);
         const palette = [];
         for (const color of selectedColors) {
             palette.push(
