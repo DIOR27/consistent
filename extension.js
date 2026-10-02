@@ -423,6 +423,7 @@ export default class ConsistentIconsExtension extends Extension {
         const content = new St.ImageContent({preferredWidth: width, preferredHeight: height});
         const coglContext = [];
         const backend = global.stage?.context?.get_backend?.();
+        // GNOME Shell 48 added Cogl.Context as the first set_bytes() argument.
         if (content.set_bytes.length === 6 && backend?.get_cogl_context)
             coglContext.push(backend.get_cogl_context());
         content.set_bytes(...coglContext, GLib.Bytes.new(rgba), Cogl.PixelFormat.RGBA_8888,

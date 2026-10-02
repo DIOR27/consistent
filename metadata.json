@@ -2,8 +2,9 @@
   "uuid": "consistent-icons@dior27.dev",
   "name": "Consistent Icons",
   "description": "Normalizes application icons created by GNOME, including dock icons and folder previews.",
+  "url": "https://github.com/DIOR27/consistent",
   "license": "GPL-2.0-only",
   "settings-schema": "org.gnome.shell.extensions.consistent-icons",
-  "shell-version": ["49"],
+  "shell-version": ["48", "49", "50"],
   "version": 11
 }
