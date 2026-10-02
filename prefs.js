@@ -17,6 +17,7 @@ const SolidColorSource = Object.freeze({
 });
 
 const GradientStyle = Object.freeze({
+    LINEAR: 0,
     RADIAL: 1,
     WAVE: 2,
 });
