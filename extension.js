@@ -3,7 +3,6 @@
 
 import Cogl from 'gi://Cogl';
 import Clutter from 'gi://Clutter';
-import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
@@ -33,8 +32,14 @@ export default class ConsistentIconsExtension extends Extension {
         this._extensionSettings = this.getSettings();
         this._extensionSettingsChangedId = this._extensionSettings.connect(
             'changed', () => this._refreshAppIcons());
-        this._iconTheme = new St.IconTheme();
+        this._themeContext = St.ThemeContext.get_for_stage(global.stage);
         this._analysisCache = new Map();
+        this._scaleFactorChangedId = this._themeContext.connect(
+            'notify::scale-factor', () => {
+                this._analysisCache.clear();
+                this._refreshAppIcons();
+            });
+        this._iconTheme = new St.IconTheme();
         this._iconThemeChangedId = this._iconTheme.connect('changed', () => {
             this._analysisCache.clear();
             this._refreshAppIcons();
@@ -63,6 +68,10 @@ export default class ConsistentIconsExtension extends Extension {
             this._iconTheme.disconnect(this._iconThemeChangedId);
             this._iconThemeChangedId = 0;
         }
+        if (this._scaleFactorChangedId) {
+            this._themeContext.disconnect(this._scaleFactorChangedId);
+            this._scaleFactorChangedId = 0;
+        }
 
         if (this._appPrototype?.create_icon_texture === this._patchedCreateIconTexture)
             this._appPrototype.create_icon_texture = this._originalCreateIconTexture;
@@ -76,6 +85,7 @@ export default class ConsistentIconsExtension extends Extension {
         this._patchedCreateIconTexture = null;
         this._settings = null;
         this._extensionSettings = null;
+        this._themeContext = null;
         this._iconTheme = null;
         this._analysisCache = null;
         this._styledIconActors = null;
@@ -85,7 +95,7 @@ export default class ConsistentIconsExtension extends Extension {
         if (!(source instanceof St.Icon))
             return source;
 
-        const analysis = this._analyzeIcon(source);
+        const analysis = this._analyzeIcon(source, size);
         if (analysis?.shape === 'rounded-square')
             return source;
 
@@ -174,7 +184,7 @@ export default class ConsistentIconsExtension extends Extension {
         return tile;
     }
 
-    _analyzeIcon(icon) {
+    _analyzeIcon(icon, iconSize) {
         if (!(icon instanceof St.Icon))
             return null;
 
@@ -184,18 +194,21 @@ export default class ConsistentIconsExtension extends Extension {
         if (!gicon)
             return null;
 
-        const key = gicon.to_string();
+        const scale = Math.max(1, this._themeContext.scale_factor);
+        // St.Icon sizes are logical pixels; the scale argument asks the icon
+        // theme for the matching high-resolution source when one is available.
+        const requestedSize = Math.max(1, Math.round(
+            iconSize || icon.icon_size || icon.width || 48));
+        const key = `${gicon.to_string()}:${requestedSize}@${scale}`;
         if (this._analysisCache.has(key))
             return this._analysisCache.get(key);
 
         let analysis = null;
         try {
-            // Inspect the actual icon actor's GIcon: themed icons resolve via
-            // the active pack; file icons use the exact image supplied to Shell.
-            const pixbuf = gicon instanceof Gio.FileIcon
-                ? GdkPixbuf.Pixbuf.new_from_file(gicon.get_file().get_path())
-                : this._iconTheme.lookup_by_gicon(
-                    gicon, 96, St.IconLookupFlags.FORCE_SIZE)?.load_icon();
+            // Use the active icon theme at the actor's real display scale.
+            // Without FORCE_SIZE, raster assets are not enlarged before display.
+            const pixbuf = this._iconTheme.lookup_by_gicon_for_scale(
+                gicon, requestedSize, scale, 0)?.load_icon();
             if (pixbuf) {
                 const shape = this._classifyShape(pixbuf);
                 analysis = {...shape, pixbuf,
@@ -298,7 +311,14 @@ export default class ConsistentIconsExtension extends Extension {
                 const red = pixels[source];
                 const green = pixels[source + 1];
                 const blue = pixels[source + 2];
-                const key = ((red >> 3) << 10) | ((green >> 3) << 5) | (blue >> 3);
+
+                const maximum = Math.max(red, green, blue);
+                const minimum = Math.min(red, green, blue);
+                const saturation = maximum === 0 ? 0 : (maximum - minimum) / maximum;
+                const hue = this._paletteHue({red, green, blue});
+                const key = saturation < 0.18
+                    ? `neutral:${Math.min(7, Math.floor(maximum / 32))}`
+                    : `hue:${Math.floor(((hue + 15) % 360) / 30)}`;
                 const entry = colors.get(key) ?? {red: 0, green: 0, blue: 0, count: 0};
                 entry.red += red;
                 entry.green += green;
@@ -309,35 +329,26 @@ export default class ConsistentIconsExtension extends Extension {
             }
         }
 
-        const candidates = [...colors.values()]
-            .sort((a, b) => b.count - a.count)
-            .filter(color => color.count >= Math.max(1, total * 0.004));
+        if (total === 0)
+            return null;
+
         const toRgb = color => ({
             red: color.red / color.count,
             green: color.green / color.count,
             blue: color.blue / color.count,
         });
-        let palette = candidates.slice(0, 5)
-            .map(toRgb);
-        const white = candidates.map(toRgb).find(color =>
-            color.red >= 240 && color.green >= 240 && color.blue >= 240);
-        if (white && !palette.some(color =>
-            color.red >= 240 && color.green >= 240 && color.blue >= 240)) {
-            if (palette.length === 5)
-                palette.pop();
-            palette.push(white);
-        }
-        if (palette.length === 0)
-            return null;
-
-        palette.sort((a, b) => this._paletteHue(a) - this._paletteHue(b));
-        if (palette.length === 1) {
-            const color = palette[0];
-            palette = [
+        const leaders = [...colors.values()];
+        const largestCount = Math.max(...leaders.map(color => color.count));
+        const dominantColors = leaders
+            .filter(color => largestCount - color.count <= total * 0.02)
+            .map(toRgb)
+            .sort((a, b) => this._paletteHue(a) - this._paletteHue(b));
+        const palette = [];
+        for (const color of dominantColors) {
+            palette.push(
                 this._mixColor(color, {red: 255, green: 255, blue: 255}, 0.35),
                 color,
-                this._mixColor(color, {red: 0, green: 0, blue: 0}, 0.25),
-            ];
+                this._mixColor(color, {red: 0, green: 0, blue: 0}, 0.25));
         }
         return palette;
     }
