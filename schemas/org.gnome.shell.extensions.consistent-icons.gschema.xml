@@ -1,0 +1,34 @@
+<!-- Copyright (C) 2026 DIOR27; SPDX-License-Identifier: GPL-2.0-only -->
+<schemalist>
+  <schema id="org.gnome.shell.extensions.consistent-icons" path="/org/gnome/shell/extensions/consistent-icons/">
+    <key name="background-mode" type="i">
+      <default>0</default>
+      <range min="0" max="2"/>
+      <summary>Icon tile background mode</summary>
+    </key>
+    <key name="solid-color-source" type="i">
+      <default>0</default>
+      <range min="0" max="1"/>
+      <summary>Static color source</summary>
+    </key>
+    <key name="solid-color" type="s">
+      <default>'#3584e4'</default>
+      <summary>Custom static background color</summary>
+    </key>
+    <key name="gradient-style" type="i">
+      <default>0</default>
+      <range min="0" max="2"/>
+      <summary>Gradient style</summary>
+    </key>
+    <key name="gradient-direction" type="i">
+      <default>0</default>
+      <range min="0" max="7"/>
+      <summary>Linear gradient direction</summary>
+    </key>
+    <key name="wave-orientation" type="i">
+      <default>0</default>
+      <range min="0" max="1"/>
+      <summary>Wave gradient orientation</summary>
+    </key>
+  </schema>
+</schemalist>
