@@ -44,6 +44,6 @@ Open **Consistent Icons** in GNOME Extensions to choose the tile background:
 
 - **System** follows GNOME's light or dark appearance.
 - **Static color** uses GNOME's accent color or a color you select.
-- **Gradient** uses the most prevalent visible colors from each effective app icon and builds lighter and darker tones from them. Colors within 2 percentage points of the leader are treated as co-dominant. Linear and wave styles have eight directions; radial gradients can use the center or one of eight nearby focal points.
+- **Gradient** uses the most prevalent visible colors from each effective app icon and builds lighter and darker tones from them. Colors within 2 percentage points of the leader are treated as co-dominant, unless the top colors tie exactly; then it uses the first tied color by hue. Linear and wave styles have eight directions; radial gradients can use the center or one of eight nearby focal points.
 
 Changes apply to existing icons immediately. Background options affect only icons that receive a tile under the shape rules above.
