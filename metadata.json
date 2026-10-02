@@ -3,6 +3,6 @@
   "name": "Consistent Icons",
   "description": "Normalizes application icons created by GNOME, including dock icons and folder previews.",
   "license": "GPL-2.0-only",
-  "shell-version": ["50"],
-  "version": 9
+  "shell-version": ["49"],
+  "version": 10
 }

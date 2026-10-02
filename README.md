@@ -1,6 +1,6 @@
 # Consistent Icons
 
-Consistent Icons is a GNOME Shell extension that gives application icons a more uniform shape in the app grid, folder previews, search results, and compatible docks. It uses each icon supplied by GNOME or the active icon theme; it does not replace the system icon theme or change icons inside application windows.
+Consistent Icons is a GNOME Shell 49 extension that gives application icons a more uniform shape in the app grid, folder previews, search results, and compatible docks. It uses each icon supplied by GNOME or the active icon theme; it does not replace the system icon theme or change icons inside application windows.
 
 Maintained by **DIOR27**.
 
@@ -18,7 +18,7 @@ Generated tiles use light or dark colors to match GNOME's appearance setting. A 
 
 ## Compatibility
 
-The extension targets GNOME Shell 50. It styles application icons created through GNOME Shell's shared app-icon API and refreshes existing actors it can identify. This also covers docks that use that API or expose an application and its icon actor to GNOME Shell. A third-party dock with a separate icon-rendering implementation may need its own integration.
+The extension targets GNOME Shell 49. It styles application icons created through GNOME Shell's shared app-icon API and refreshes existing actors it can identify. This also covers docks that use that API or expose an application and its icon actor to GNOME Shell. A third-party dock with a separate icon-rendering implementation may need its own integration.
 
 ## Install
 
