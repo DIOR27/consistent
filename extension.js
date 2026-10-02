@@ -30,6 +30,9 @@ export default class ConsistentIconsExtension extends Extension {
         this._appPrototype.create_icon_texture = this._patchedCreateIconTexture;
 
         this._settings = St.Settings.get();
+        this._extensionSettings = this.getSettings();
+        this._extensionSettingsChangedId = this._extensionSettings.connect(
+            'changed', () => this._refreshAppIcons());
         this._iconTheme = new St.IconTheme();
         this._analysisCache = new Map();
         this._iconThemeChangedId = this._iconTheme.connect('changed', () => {
@@ -38,6 +41,8 @@ export default class ConsistentIconsExtension extends Extension {
         });
         this._colorSchemeChangedId = this._settings.connect(
             'notify::color-scheme', () => this._updateTileColors());
+        this._accentColorChangedId = this._settings.connect(
+            'notify::accent-color', () => this._updateTileColors());
         this._refreshAppIcons();
     }
 
@@ -45,6 +50,14 @@ export default class ConsistentIconsExtension extends Extension {
         if (this._colorSchemeChangedId) {
             this._settings.disconnect(this._colorSchemeChangedId);
             this._colorSchemeChangedId = 0;
+        }
+        if (this._accentColorChangedId) {
+            this._settings.disconnect(this._accentColorChangedId);
+            this._accentColorChangedId = 0;
+        }
+        if (this._extensionSettingsChangedId) {
+            this._extensionSettings.disconnect(this._extensionSettingsChangedId);
+            this._extensionSettingsChangedId = 0;
         }
         if (this._iconThemeChangedId) {
             this._iconTheme.disconnect(this._iconThemeChangedId);
@@ -62,6 +75,7 @@ export default class ConsistentIconsExtension extends Extension {
         this._originalCreateIconTexture = null;
         this._patchedCreateIconTexture = null;
         this._settings = null;
+        this._extensionSettings = null;
         this._iconTheme = null;
         this._analysisCache = null;
         this._styledIconActors = null;
@@ -90,7 +104,7 @@ export default class ConsistentIconsExtension extends Extension {
                 const image = this._createImageActor(
                     analysis.pixbuf, contentSize, false, analysis.bounds);
                 source.destroy();
-                return this._createTile(image, size);
+                return this._createTile(image, size, analysis.palette);
             } catch (error) {
                 console.debug(`Consistent Icons: cannot render icon image: ${error.message}`);
             }
@@ -100,39 +114,63 @@ export default class ConsistentIconsExtension extends Extension {
         source.x_align = Clutter.ActorAlign.CENTER;
         source.y_align = Clutter.ActorAlign.CENTER;
         source.set_size(contentSize, contentSize);
-        return this._createTile(source, size);
+        return this._createTile(source, size, analysis?.palette ?? null);
     }
 
-    _styleTile(tile, size) {
+    _styleTile(tile, size, palette = null) {
         const variant = Main.getStyleVariant();
         const dark = variant === 'dark' ||
             (variant === '' && this._settings.colorScheme === St.SystemColorScheme.PREFER_DARK);
         const radius = Math.max(3, Math.round(size * 0.22));
+        const settings = this._extensionSettings;
+        const mode = settings.get_int('background-mode');
+        const hasGradient = mode === 2 && palette?.length > 1;
+        let backgroundColor = dark ? '#292a30' : '#f1f2f4';
+        if (mode === 1) {
+            backgroundColor = settings.get_int('solid-color-source') === 0
+                ? '-st-accent-color'
+                : this._getSafeCustomColor();
+        }
+        tile.set_content(hasGradient
+            ? this._createGradientContent(palette, size,
+                settings.get_int('gradient-style'), settings.get_int('gradient-direction'),
+                settings.get_int('wave-orientation'))
+            : null);
         const style = dark
-            ? `background-color: #292a30; border: 1px solid rgba(255,255,255,0.045); border-radius: ${radius}px; box-shadow: 0 1px 3px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.065);`
-            : `background-color: #f1f2f4; border: 1px solid rgba(255,255,255,0.55); border-radius: ${radius}px; box-shadow: 0 1px 3px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.72);`;
+            ? `background-color: ${hasGradient ? 'transparent' : backgroundColor}; border: 1px solid rgba(255,255,255,0.045); border-radius: ${radius}px; box-shadow: 0 1px 3px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.065);`
+            : `background-color: ${hasGradient ? 'transparent' : backgroundColor}; border: 1px solid rgba(255,255,255,0.55); border-radius: ${radius}px; box-shadow: 0 1px 3px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.72);`;
         tile.set_style(style);
     }
 
-    _createTile(icon, size) {
+    _getSafeCustomColor() {
+        const color = this._extensionSettings.get_string('solid-color');
+        return /^#[\da-f]{6}(?:[\da-f]{2})?$/i.test(color) ||
+            /^rgba?\([\d.,%\s]+\)$/i.test(color)
+            ? color
+            : '#3584e4';
+    }
+
+    _createTile(icon, size, palette = null) {
         const tile = new St.Widget({
             layout_manager: new Clutter.BinLayout(),
             style_class: 'consistent-app-icon-tile',
             width: size,
             height: size,
+            content_gravity: Clutter.ContentGravity.RESIZE_ASPECT,
             reactive: false,
             can_focus: false,
         });
+        tile._consistentIconPalette = palette;
         tile.add_child(icon);
         const syncSize = () => {
             const tileSize = Math.max(tile.width, tile.height, size);
             const contentSize = Math.max(1, Math.round(tileSize * 0.70));
             icon.set_size(contentSize, contentSize);
-            this._styleTile(tile, tileSize);
+            this._styleTile(tile, tileSize, tile._consistentIconPalette);
         };
         tile.connect('notify::width', syncSize);
         tile.connect('notify::height', syncSize);
-        this._styleTile(tile, size);
+        this._styleTile(tile, size, palette);
         return tile;
     }
 
@@ -158,8 +196,11 @@ export default class ConsistentIconsExtension extends Extension {
                 ? GdkPixbuf.Pixbuf.new_from_file(gicon.get_file().get_path())
                 : this._iconTheme.lookup_by_gicon(
                     gicon, 96, St.IconLookupFlags.FORCE_SIZE)?.load_icon();
-            if (pixbuf)
-                analysis = {...this._classifyShape(pixbuf), pixbuf};
+            if (pixbuf) {
+                const shape = this._classifyShape(pixbuf);
+                analysis = {...shape, pixbuf,
+                    palette: this._extractPalette(pixbuf, shape.bounds)};
+            }
         } catch (error) {
             console.debug(`Consistent Icons: cannot inspect icon: ${error.message}`);
         }
@@ -236,6 +277,159 @@ export default class ConsistentIconsExtension extends Extension {
             bounds: {x: minX, y: minY, width, height}};
     }
 
+    _extractPalette(pixbuf, bounds = null) {
+        const imageWidth = bounds?.width ?? pixbuf.get_width();
+        const imageHeight = bounds?.height ?? pixbuf.get_height();
+        const xOffset = bounds?.x ?? 0;
+        const yOffset = bounds?.y ?? 0;
+        const pixels = pixbuf.get_pixels();
+        const channels = pixbuf.get_n_channels();
+        const rowstride = pixbuf.get_rowstride();
+        const step = Math.max(1, Math.ceil(Math.sqrt(imageWidth * imageHeight / 4096)));
+        const colors = new Map();
+        let total = 0;
+
+        for (let y = 0; y < imageHeight; y += step) {
+            for (let x = 0; x < imageWidth; x += step) {
+                const source = (y + yOffset) * rowstride + (x + xOffset) * channels;
+                if (channels === 4 && pixels[source + 3] < 120)
+                    continue;
+
+                const red = pixels[source];
+                const green = pixels[source + 1];
+                const blue = pixels[source + 2];
+                const key = ((red >> 3) << 10) | ((green >> 3) << 5) | (blue >> 3);
+                const entry = colors.get(key) ?? {red: 0, green: 0, blue: 0, count: 0};
+                entry.red += red;
+                entry.green += green;
+                entry.blue += blue;
+                entry.count++;
+                colors.set(key, entry);
+                total++;
+            }
+        }
+
+        const candidates = [...colors.values()]
+            .sort((a, b) => b.count - a.count)
+            .filter(color => color.count >= Math.max(1, total * 0.004));
+        const toRgb = color => ({
+            red: color.red / color.count,
+            green: color.green / color.count,
+            blue: color.blue / color.count,
+        });
+        let palette = candidates.slice(0, 5)
+            .map(toRgb);
+        const white = candidates.map(toRgb).find(color =>
+            color.red >= 240 && color.green >= 240 && color.blue >= 240);
+        if (white && !palette.some(color =>
+            color.red >= 240 && color.green >= 240 && color.blue >= 240)) {
+            if (palette.length === 5)
+                palette.pop();
+            palette.push(white);
+        }
+        if (palette.length === 0)
+            return null;
+
+        palette.sort((a, b) => this._paletteHue(a) - this._paletteHue(b));
+        if (palette.length === 1) {
+            const color = palette[0];
+            palette = [
+                this._mixColor(color, {red: 255, green: 255, blue: 255}, 0.35),
+                color,
+                this._mixColor(color, {red: 0, green: 0, blue: 0}, 0.25),
+            ];
+        }
+        return palette;
+    }
+
+    _paletteHue(color) {
+        const red = color.red / 255;
+        const green = color.green / 255;
+        const blue = color.blue / 255;
+        const max = Math.max(red, green, blue);
+        const min = Math.min(red, green, blue);
+        const delta = max - min;
+        if (delta < 0.04)
+            return 360 + (red + green + blue) / 765;
+
+        let hue;
+        if (max === red)
+            hue = ((green - blue) / delta) % 6;
+        else if (max === green)
+            hue = (blue - red) / delta + 2;
+        else
+            hue = (red - green) / delta + 4;
+        return (hue * 60 + 360) % 360;
+    }
+
+    _mixColor(first, second, amount) {
+        return {
+            red: first.red * (1 - amount) + second.red * amount,
+            green: first.green * (1 - amount) + second.green * amount,
+            blue: first.blue * (1 - amount) + second.blue * amount,
+        };
+    }
+
+    _createGradientContent(palette, size, style, direction, waveOrientation) {
+        if (!palette || palette.length < 2 || size < 1)
+            return null;
+
+        const rgba = new Uint8Array(size * size * 4);
+        const vectors = [
+            [1, 0], [1, 1], [0, 1], [-1, 1],
+            [-1, 0], [-1, -1], [0, -1], [1, -1],
+        ];
+        const [vectorX, vectorY] = vectors[Math.clamp(direction, 0, vectors.length - 1)];
+        const span = Math.abs(vectorX) + Math.abs(vectorY);
+        const radius = size * 0.22;
+        const getColor = t => {
+            const position = Math.clamp(t, 0, 1) * (palette.length - 1);
+            const index = Math.min(Math.floor(position), palette.length - 2);
+            const amount = position - index;
+            return this._mixColor(palette[index], palette[index + 1], amount);
+        };
+
+        for (let y = 0; y < size; y++) {
+            for (let x = 0; x < size; x++) {
+                const nx = size === 1 ? 0 : x / (size - 1) - 0.5;
+                const ny = size === 1 ? 0 : y / (size - 1) - 0.5;
+                let t;
+                if (style === 1) {
+                    t = Math.hypot(nx, ny) / Math.SQRT1_2;
+                } else if (style === 2) {
+                    t = waveOrientation === 0
+                        ? x / Math.max(1, size - 1) + Math.sin(ny * Math.PI * 4) * 0.14
+                        : y / Math.max(1, size - 1) + Math.sin(nx * Math.PI * 4) * 0.14;
+                } else {
+                    t = (nx * vectorX + ny * vectorY + span / 2) / span;
+                }
+
+                const color = getColor(t);
+                const target = (y * size + x) * 4;
+                rgba[target] = color.red;
+                rgba[target + 1] = color.green;
+                rgba[target + 2] = color.blue;
+                const centerX = Math.max(radius, Math.min(size - radius, x + 0.5));
+                const centerY = Math.max(radius, Math.min(size - radius, y + 0.5));
+                const distance = Math.hypot(x + 0.5 - centerX, y + 0.5 - centerY);
+                rgba[target + 3] = Math.round(255 * Math.clamp(radius + 0.5 - distance, 0, 1));
+            }
+        }
+
+        return this._createImageContent(rgba, size, size);
+    }
+
+    _createImageContent(rgba, width, height) {
+        const content = new St.ImageContent({preferredWidth: width, preferredHeight: height});
+        const coglContext = [];
+        const backend = global.stage?.context?.get_backend?.();
+        if (content.set_bytes.length === 6 && backend?.get_cogl_context)
+            coglContext.push(backend.get_cogl_context());
+        content.set_bytes(...coglContext, GLib.Bytes.new(rgba), Cogl.PixelFormat.RGBA_8888,
+            width, height, width * 4);
+        return content;
+    }
+
     _createImageActor(pixbuf, size, roundCorners = false, bounds = null) {
         const xOffset = bounds?.x ?? 0;
         const yOffset = bounds?.y ?? 0;
@@ -265,13 +459,7 @@ export default class ConsistentIconsExtension extends Extension {
             }
         }
 
-        const content = new St.ImageContent({preferredWidth: width, preferredHeight: height});
-        const coglContext = [];
-        const backend = global.stage?.context?.get_backend?.();
-        if (content.set_bytes.length === 6 && backend?.get_cogl_context)
-            coglContext.push(backend.get_cogl_context());
-        content.set_bytes(...coglContext, GLib.Bytes.new(rgba), Cogl.PixelFormat.RGBA_8888,
-            width, height, width * 4);
+        const content = this._createImageContent(rgba, width, height);
 
         return new St.Widget({
             content,
@@ -360,7 +548,7 @@ export default class ConsistentIconsExtension extends Extension {
         const visit = actor => {
             if (actor.has_style_class_name?.('consistent-app-icon-tile')) {
                 const size = actor.width || actor.height || 16;
-                this._styleTile(actor, size);
+                this._styleTile(actor, size, actor._consistentIconPalette ?? null);
             }
             for (const child of actor.get_children())
                 visit(child);
