@@ -3,6 +3,7 @@
 
 import Cogl from 'gi://Cogl';
 import Clutter from 'gi://Clutter';
+import GdkPixbuf from 'gi://GdkPixbuf';
 import Gio from 'gi://Gio';
 import GLib from 'gi://GLib';
 import Shell from 'gi://Shell';
@@ -32,6 +33,13 @@ export default class ConsistentIconsExtension extends Extension {
         this._extensionSettings = this.getSettings();
         this._extensionSettingsChangedId = this._extensionSettings.connect(
             'changed', () => this._refreshAppIcons());
+        this._backgroundSettings = new Gio.Settings({
+            schema_id: 'org.gnome.desktop.background',
+        });
+        this._backgroundSettingsChangedId = this._backgroundSettings.connect(
+            'changed', () => this._refreshWallpaperPalette());
+        this._wallpaperPalette = null;
+        this._refreshWallpaperPalette(false);
         this._themeContext = St.ThemeContext.get_for_stage(global.stage);
         this._analysisCache = new Map();
         this._scaleFactorChangedId = this._themeContext.connect(
@@ -45,7 +53,10 @@ export default class ConsistentIconsExtension extends Extension {
             this._refreshAppIcons();
         });
         this._colorSchemeChangedId = this._settings.connect(
-            'notify::color-scheme', () => this._updateTileColors());
+            'notify::color-scheme', () => {
+                this._refreshWallpaperPalette(false);
+                this._updateTileColors();
+            });
         this._accentColorChangedId = this._settings.connect(
             'notify::accent-color', () => this._updateTileColors());
         this._refreshAppIcons();
@@ -63,6 +74,10 @@ export default class ConsistentIconsExtension extends Extension {
         if (this._extensionSettingsChangedId) {
             this._extensionSettings.disconnect(this._extensionSettingsChangedId);
             this._extensionSettingsChangedId = 0;
+        }
+        if (this._backgroundSettingsChangedId) {
+            this._backgroundSettings.disconnect(this._backgroundSettingsChangedId);
+            this._backgroundSettingsChangedId = 0;
         }
         if (this._iconThemeChangedId) {
             this._iconTheme.disconnect(this._iconThemeChangedId);
@@ -85,6 +100,8 @@ export default class ConsistentIconsExtension extends Extension {
         this._patchedCreateIconTexture = null;
         this._settings = null;
         this._extensionSettings = null;
+        this._backgroundSettings = null;
+        this._wallpaperPalette = null;
         this._themeContext = null;
         this._iconTheme = null;
         this._analysisCache = null;
@@ -128,13 +145,14 @@ export default class ConsistentIconsExtension extends Extension {
     }
 
     _styleTile(tile, size, palette = null) {
-        const variant = Main.getStyleVariant();
-        const dark = variant === 'dark' ||
-            (variant === '' && this._settings.colorScheme === St.SystemColorScheme.PREFER_DARK);
-        const radius = Math.max(3, Math.round(size * 0.22));
         const settings = this._extensionSettings;
         const mode = settings.get_int('background-mode');
-        const hasGradient = mode === 2 && palette?.length > 1;
+        const dark = this._getTileAppearance(mode);
+        const radius = Math.max(3, Math.round(size * 0.22));
+        const gradientPalette = mode === 2 && settings.get_int('gradient-source') === 1
+            ? this._wallpaperPalette ?? palette
+            : palette;
+        const hasGradient = mode === 2 && gradientPalette?.length > 1;
         let backgroundColor = dark ? '#292a30' : '#f1f2f4';
         if (mode === 1) {
             backgroundColor = settings.get_int('solid-color-source') === 0
@@ -142,7 +160,7 @@ export default class ConsistentIconsExtension extends Extension {
                 : this._getSafeCustomColor();
         }
         tile.set_content(hasGradient
-            ? this._createGradientContent(palette, size,
+            ? this._createGradientContent(gradientPalette, size,
                 settings.get_int('gradient-style'), settings.get_int('gradient-direction'),
                 settings.get_int('wave-orientation'), settings.get_int('radial-center'))
             : null);
@@ -150,6 +168,48 @@ export default class ConsistentIconsExtension extends Extension {
             ? `background-color: ${hasGradient ? 'transparent' : backgroundColor}; border: 1px solid rgba(255,255,255,0.045); border-radius: ${radius}px; box-shadow: 0 1px 3px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.065);`
             : `background-color: ${hasGradient ? 'transparent' : backgroundColor}; border: 1px solid rgba(255,255,255,0.55); border-radius: ${radius}px; box-shadow: 0 1px 3px rgba(0,0,0,0.14), inset 0 1px 0 rgba(255,255,255,0.72);`;
         tile.set_style(style);
+    }
+
+    _getSystemDarkAppearance() {
+        const variant = Main.getStyleVariant();
+        return variant === 'dark' ||
+            (variant === '' && this._settings.colorScheme === St.SystemColorScheme.PREFER_DARK);
+    }
+
+    _getTileAppearance(backgroundMode) {
+        if (backgroundMode !== 0)
+            return this._getSystemDarkAppearance();
+
+        const appearance = this._extensionSettings.get_int('system-appearance');
+        if (appearance === 1)
+            return false;
+        if (appearance === 2)
+            return true;
+        return this._getSystemDarkAppearance();
+    }
+
+    _getWallpaperUri() {
+        const dark = this._getSystemDarkAppearance();
+        const primaryKey = dark ? 'picture-uri-dark' : 'picture-uri';
+        const fallbackKey = dark ? 'picture-uri' : 'picture-uri-dark';
+        return this._backgroundSettings.get_string(primaryKey) ||
+            this._backgroundSettings.get_string(fallbackKey);
+    }
+
+    _refreshWallpaperPalette(updateTiles = true) {
+        this._wallpaperPalette = null;
+        try {
+            const path = Gio.File.new_for_uri(this._getWallpaperUri()).get_path();
+            if (path) {
+                const pixbuf = GdkPixbuf.Pixbuf.new_from_file_at_scale(path, 256, 256, true);
+                this._wallpaperPalette = this._extractPalette(pixbuf);
+            }
+        } catch (error) {
+            console.debug(`Consistent Icons: cannot inspect wallpaper: ${error.message}`);
+        }
+
+        if (updateTiles && this._styledIconActors)
+            this._updateTileColors();
     }
 
     _getSafeCustomColor() {
