@@ -37,21 +37,21 @@ function addComboRow(group, settings, key, title, values) {
 export default class ConsistentIconsPreferences extends ExtensionPreferences {
     fillPreferencesWindow(window) {
         const settings = this.getSettings();
-        const page = new Adw.PreferencesPage({title: 'Apariencia'});
+        const page = new Adw.PreferencesPage({title: 'Appearance'});
         const modeGroup = new Adw.PreferencesGroup({
-            title: 'Fondo de los iconos',
-            description: 'El estilo se aplica a las placas que añade la extensión.',
+            title: 'Icon backgrounds',
+            description: 'The selected style applies to tiles added by the extension.',
         });
         addComboRow(modeGroup, settings, 'background-mode',
-            'Estilo del fondo', ['Sistema', 'Color estático', 'Gradiente']);
+            'Background style', ['System', 'Solid color', 'Gradient']);
         const appearanceRow = addComboRow(modeGroup, settings, 'system-appearance',
-            'Apariencia del fondo', ['Seguir el sistema', 'Claro', 'Oscuro']);
+            'Background appearance', ['Follow system', 'Light', 'Dark']);
 
-        const solidGroup = new Adw.PreferencesGroup({title: 'Color estático'});
+        const solidGroup = new Adw.PreferencesGroup({title: 'Solid color'});
         addComboRow(solidGroup, settings, 'solid-color-source',
-            'Origen del color', ['Color de acento de GNOME', 'Color personalizado']);
+            'Color source', ['GNOME accent color', 'Custom color']);
         const colorDialog = new Gtk.ColorDialog({
-            title: 'Elige un color',
+            title: 'Choose a color',
             with_alpha: false,
         });
         const colorButton = new Gtk.ColorDialogButton({dialog: colorDialog});
@@ -61,51 +61,51 @@ export default class ConsistentIconsPreferences extends ExtensionPreferences {
         colorButton.connect('notify::rgba', () =>
             settings.set_string('solid-color', colorButton.rgba.to_string()));
         const colorRow = new Adw.ActionRow({
-            title: 'Color personalizado',
-            subtitle: 'Se usa cuando el origen es Color personalizado.',
+            title: 'Custom color',
+            subtitle: 'Used when the color source is Custom color.',
             activatable_widget: colorButton,
         });
         colorRow.add_suffix(colorButton);
         solidGroup.add(colorRow);
 
-        const gradientGroup = new Adw.PreferencesGroup({title: 'Gradiente'});
+        const gradientGroup = new Adw.PreferencesGroup({title: 'Gradient'});
         const gradientSourceRow = addComboRow(gradientGroup, settings, 'gradient-source',
-            'Colores del gradiente', ['Colores del icono', 'Fondo de pantalla']);
+            'Gradient colors', ['Icon colors', 'Wallpaper']);
         const gradientStyleRow = addComboRow(gradientGroup, settings, 'gradient-style',
-            'Estilo', ['Lineal', 'Radial', 'Onda']);
+            'Style', ['Linear', 'Radial', 'Wave']);
         const directionRow = addComboRow(gradientGroup, settings, 'gradient-direction',
-            'Dirección lineal', [
-                'Izquierda a derecha',
-                'Diagonal: arriba izquierda a abajo derecha',
-                'Arriba a abajo',
-                'Diagonal: arriba derecha a abajo izquierda',
-                'Derecha a izquierda',
-                'Diagonal: abajo derecha a arriba izquierda',
-                'Abajo a arriba',
-                'Diagonal: abajo izquierda a arriba derecha',
+            'Linear direction', [
+                'Left to right',
+                'Diagonal: top left to bottom right',
+                'Top to bottom',
+                'Diagonal: top right to bottom left',
+                'Right to left',
+                'Diagonal: bottom right to top left',
+                'Bottom to top',
+                'Diagonal: bottom left to top right',
             ]);
         const waveRow = addComboRow(gradientGroup, settings, 'wave-orientation',
-            'Dirección de onda', [
-                'Izquierda a derecha',
-                'Arriba a abajo',
-                'Derecha a izquierda',
-                'Abajo a arriba',
-                'Diagonal: arriba izquierda a abajo derecha',
-                'Diagonal: arriba derecha a abajo izquierda',
-                'Diagonal: abajo derecha a arriba izquierda',
-                'Diagonal: abajo izquierda a arriba derecha',
+            'Wave direction', [
+                'Left to right',
+                'Top to bottom',
+                'Right to left',
+                'Bottom to top',
+                'Diagonal: top left to bottom right',
+                'Diagonal: top right to bottom left',
+                'Diagonal: bottom right to top left',
+                'Diagonal: bottom left to top right',
             ]);
         const radialCenterRow = addComboRow(gradientGroup, settings, 'radial-center',
-            'Centro del gradiente radial', [
-                'Centro',
-                'Izquierda',
-                'Arriba izquierda',
-                'Arriba',
-                'Arriba derecha',
-                'Derecha',
-                'Abajo derecha',
-                'Abajo',
-                'Abajo izquierda',
+            'Radial gradient center', [
+                'Center',
+                'Left',
+                'Top left',
+                'Top',
+                'Top right',
+                'Right',
+                'Bottom right',
+                'Bottom',
+                'Bottom left',
             ]);
 
         page.add(modeGroup);
