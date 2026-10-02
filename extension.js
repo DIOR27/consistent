@@ -96,21 +96,30 @@ export default class ConsistentIconsExtension extends Extension {
             return source;
 
         const analysis = this._analyzeIcon(source, size);
-        if (analysis?.shape === 'rounded-square')
-            return source;
+        const contentSize = Math.max(1, Math.round(size * 0.70));
+
+        if (analysis?.shape === 'rounded-square') {
+            try {
+                const image = this._createImageActor(
+                    analysis.pixbuf, contentSize, false, analysis.bounds);
+                source.destroy();
+                return this._createIconFrame(image, size);
+            } catch (error) {
+                console.debug(`Consistent Icons: cannot resize rounded icon: ${error.message}`);
+            }
+        }
 
         if (analysis?.shape === 'square') {
             try {
                 const rounded = this._createImageActor(
-                    analysis.pixbuf, size, true, analysis.bounds);
+                    analysis.pixbuf, contentSize, true, analysis.bounds);
                 source.destroy();
-                return rounded;
+                return this._createIconFrame(rounded, size);
             } catch (error) {
                 console.debug(`Consistent Icons: cannot round square icon: ${error.message}`);
             }
         } else if (analysis?.shape === 'other') {
             try {
-                const contentSize = Math.max(1, Math.round(size * 0.70));
                 const image = this._createImageActor(
                     analysis.pixbuf, contentSize, false, analysis.bounds);
                 source.destroy();
@@ -120,7 +129,6 @@ export default class ConsistentIconsExtension extends Extension {
             }
         }
 
-        const contentSize = Math.max(1, Math.round(size * 0.70));
         source.x_align = Clutter.ActorAlign.CENTER;
         source.y_align = Clutter.ActorAlign.CENTER;
         source.set_size(contentSize, contentSize);
@@ -144,7 +152,7 @@ export default class ConsistentIconsExtension extends Extension {
         tile.set_content(hasGradient
             ? this._createGradientContent(palette, size,
                 settings.get_int('gradient-style'), settings.get_int('gradient-direction'),
-                settings.get_int('wave-orientation'))
+                settings.get_int('wave-orientation'), settings.get_int('radial-center'))
             : null);
         const style = dark
             ? `background-color: ${hasGradient ? 'transparent' : backgroundColor}; border: 1px solid rgba(255,255,255,0.045); border-radius: ${radius}px; box-shadow: 0 1px 3px rgba(0,0,0,0.28), inset 0 1px 0 rgba(255,255,255,0.065);`
@@ -182,6 +190,27 @@ export default class ConsistentIconsExtension extends Extension {
         tile.connect('notify::height', syncSize);
         this._styleTile(tile, size, palette);
         return tile;
+    }
+
+    _createIconFrame(icon, size) {
+        const frame = new St.Widget({
+            layout_manager: new Clutter.BinLayout(),
+            width: size,
+            height: size,
+            reactive: false,
+            can_focus: false,
+        });
+        frame.add_child(icon);
+        const syncSize = () => {
+            const frameSize = Math.max(frame.width, frame.height, size);
+            const contentSize = Math.max(1, Math.round(frameSize * 0.70));
+            icon.set_size(contentSize, contentSize);
+        };
+        icon.x_align = Clutter.ActorAlign.CENTER;
+        icon.y_align = Clutter.ActorAlign.CENTER;
+        frame.connect('notify::width', syncSize);
+        frame.connect('notify::height', syncSize);
+        return frame;
     }
 
     _analyzeIcon(icon, iconSize) {
@@ -381,17 +410,40 @@ export default class ConsistentIconsExtension extends Extension {
         };
     }
 
-    _createGradientContent(palette, size, style, direction, waveOrientation) {
+    _createGradientContent(palette, size, style, direction, waveOrientation, radialCenter) {
         if (!palette || palette.length < 2 || size < 1)
             return null;
 
         const rgba = new Uint8Array(size * size * 4);
-        const vectors = [
+        const linearVectors = [
             [1, 0], [1, 1], [0, 1], [-1, 1],
             [-1, 0], [-1, -1], [0, -1], [1, -1],
         ];
-        const [vectorX, vectorY] = vectors[Math.clamp(direction, 0, vectors.length - 1)];
-        const span = Math.abs(vectorX) + Math.abs(vectorY);
+        const waveVectors = [
+            [1, 0], [0, 1], [-1, 0], [0, -1],
+            [1, 1], [-1, 1], [-1, -1], [1, -1],
+        ];
+        const [vectorX, vectorY] = linearVectors[
+            Math.clamp(direction, 0, linearVectors.length - 1)];
+        const [waveX, waveY] = waveVectors[
+            Math.clamp(waveOrientation, 0, waveVectors.length - 1)];
+        const linearSpan = Math.abs(vectorX) + Math.abs(vectorY);
+        const waveLength = Math.hypot(waveX, waveY);
+        const waveUnitX = waveX / waveLength;
+        const waveUnitY = waveY / waveLength;
+        const waveSpan = Math.abs(waveUnitX) + Math.abs(waveUnitY);
+        const radialCenters = [
+            [0.5, 0.5], [0.25, 0.5], [0.25, 0.25], [0.5, 0.25],
+            [0.75, 0.25], [0.75, 0.5], [0.75, 0.75], [0.5, 0.75],
+            [0.25, 0.75],
+        ];
+        const [centerX, centerY] = radialCenters[
+            Math.clamp(radialCenter, 0, radialCenters.length - 1)];
+        const radialX = centerX - 0.5;
+        const radialY = centerY - 0.5;
+        const corners = [[-0.5, -0.5], [0.5, -0.5], [-0.5, 0.5], [0.5, 0.5]];
+        const radialMax = Math.max(...corners.map(([x, y]) =>
+            Math.hypot(x - radialX, y - radialY)));
         const radius = size * 0.22;
         const getColor = t => {
             const position = Math.clamp(t, 0, 1) * (palette.length - 1);
@@ -406,13 +458,14 @@ export default class ConsistentIconsExtension extends Extension {
                 const ny = size === 1 ? 0 : y / (size - 1) - 0.5;
                 let t;
                 if (style === 1) {
-                    t = Math.hypot(nx, ny) / Math.SQRT1_2;
+                    t = Math.hypot(nx - radialX, ny - radialY) / radialMax;
                 } else if (style === 2) {
-                    t = waveOrientation === 0
-                        ? x / Math.max(1, size - 1) + Math.sin(ny * Math.PI * 4) * 0.14
-                        : y / Math.max(1, size - 1) + Math.sin(nx * Math.PI * 4) * 0.14;
+                    const along = nx * waveUnitX + ny * waveUnitY;
+                    const across = -nx * waveUnitY + ny * waveUnitX;
+                    t = (along + waveSpan / 2) / waveSpan +
+                        Math.sin(across * Math.PI * 4) * 0.14;
                 } else {
-                    t = (nx * vectorX + ny * vectorY + span / 2) / span;
+                    t = (nx * vectorX + ny * vectorY + linearSpan / 2) / linearSpan;
                 }
 
                 const color = getColor(t);
