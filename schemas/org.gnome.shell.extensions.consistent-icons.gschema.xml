@@ -6,6 +6,11 @@
       <range min="0" max="2"/>
       <summary>Icon tile background mode</summary>
     </key>
+    <key name="system-appearance" type="i">
+      <default>0</default>
+      <range min="0" max="2"/>
+      <summary>Appearance used by System background mode</summary>
+    </key>
     <key name="solid-color-source" type="i">
       <default>0</default>
       <range min="0" max="1"/>
@@ -24,6 +29,11 @@
       <default>0</default>
       <range min="0" max="7"/>
       <summary>Linear gradient direction</summary>
+    </key>
+    <key name="gradient-source" type="i">
+      <default>0</default>
+      <range min="0" max="1"/>
+      <summary>Source used to build gradient colors</summary>
     </key>
     <key name="wave-orientation" type="i">
       <default>0</default>

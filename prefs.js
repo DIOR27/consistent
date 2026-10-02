@@ -8,6 +8,7 @@ import Gtk from 'gi://Gtk';
 import {ExtensionPreferences} from 'resource:///org/gnome/Shell/Extensions/js/extensions/prefs.js';
 
 const BackgroundMode = Object.freeze({
+    SYSTEM: 0,
     SOLID: 1,
     GRADIENT: 2,
 });
@@ -43,6 +44,8 @@ export default class ConsistentIconsPreferences extends ExtensionPreferences {
         });
         addComboRow(modeGroup, settings, 'background-mode',
             'Estilo del fondo', ['Sistema', 'Color estático', 'Gradiente']);
+        const appearanceRow = addComboRow(modeGroup, settings, 'system-appearance',
+            'Apariencia del fondo', ['Seguir el sistema', 'Claro', 'Oscuro']);
 
         const solidGroup = new Adw.PreferencesGroup({title: 'Color estático'});
         addComboRow(solidGroup, settings, 'solid-color-source',
@@ -66,6 +69,8 @@ export default class ConsistentIconsPreferences extends ExtensionPreferences {
         solidGroup.add(colorRow);
 
         const gradientGroup = new Adw.PreferencesGroup({title: 'Gradiente'});
+        const gradientSourceRow = addComboRow(gradientGroup, settings, 'gradient-source',
+            'Colores del gradiente', ['Colores del icono', 'Fondo de pantalla']);
         const gradientStyleRow = addComboRow(gradientGroup, settings, 'gradient-style',
             'Estilo', ['Lineal', 'Radial', 'Onda']);
         const directionRow = addComboRow(gradientGroup, settings, 'gradient-direction',
@@ -112,9 +117,11 @@ export default class ConsistentIconsPreferences extends ExtensionPreferences {
             const mode = settings.get_int('background-mode');
             const source = settings.get_int('solid-color-source');
             const gradientStyle = settings.get_int('gradient-style');
+            appearanceRow.visible = mode === BackgroundMode.SYSTEM;
             solidGroup.visible = mode === BackgroundMode.SOLID;
             colorRow.visible = source === SolidColorSource.CUSTOM;
             gradientGroup.visible = mode === BackgroundMode.GRADIENT;
+            gradientSourceRow.visible = mode === BackgroundMode.GRADIENT;
             directionRow.visible = gradientStyle === GradientStyle.LINEAR;
             waveRow.visible = gradientStyle === GradientStyle.WAVE;
             radialCenterRow.visible = gradientStyle === GradientStyle.RADIAL;
